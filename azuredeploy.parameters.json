@@ -1,0 +1,27 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "value": "admin"
+    },
+    "adminPassword": {
+      "value": "Replaceme#$1!abc"
+    },
+    "dnsLabelPrefix": {
+      "value": "myvmname001"
+    },
+    "vstsAccountName":{
+      "value": ""
+    },
+    "teamProject":{
+      "value": ""
+    },
+    "deploymentGroup":{
+      "value": ""
+    },
+    "patToken": {
+      "value": ""
+    }
+  }
+}
