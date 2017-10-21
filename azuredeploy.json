@@ -63,10 +63,10 @@
     "publicIPAddressType": "Dynamic",
     "vmName": "[parameters('dnsLabelPrefix')]",
     "vmSize": "Standard_DS1_v2",
-    "virtualNetworkName": "SapOpt2-vnet",
+    "virtualNetworkName": "myvnet",
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
     "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables('subnetName'))]",
-    "nsgName": "lzuap00001-nsg"
+    "nsgName": "mynsg"
   },
   "resources": [
     {
