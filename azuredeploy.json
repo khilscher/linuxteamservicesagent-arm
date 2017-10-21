@@ -1,0 +1,270 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "User name for the Virtual Machine."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Password for the Virtual Machine."
+      }
+    },
+    "dnsLabelPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Unique hostname for the Virtual Machine."
+      }
+    },
+    "ubuntuOSVersion": {
+      "type": "string",
+      "defaultValue": "16.04.0-LTS",
+      "metadata": {
+        "description": "Ubuntu 16.04 LTS"
+      }
+    },
+    "vstsAccountName":{
+      "type": "string",
+      "metadata": {
+        "description": "VSTS account name. If VSTS URL is https://abc.visualstudio.com then account name is 'abc'"
+      }
+    },
+    "teamProject":{
+      "type": "string",
+      "metadata": {
+        "description": "VSTS project name."
+      }
+    },
+    "deploymentGroup":{
+      "type": "string",
+      "metadata": {
+        "description": "VSTS deployment group name."
+      }
+    },
+    "patToken": {
+      "type": "string",
+      "metadata": {
+        "description": "PAT token obtained from VSTS under Deployment Group"
+      }
+    }
+  },
+  "variables": {
+    "imagePublisher": "Canonical",
+    "imageOffer": "UbuntuServer",
+    "nicName": "[concat(parameters('dnsLabelPrefix'),'nic')]",
+    "addressPrefix": "10.0.1.0/24",
+    "subnetName": "default",
+    "subnetPrefix": "10.0.1.0/24",
+    "publicIPAddressName": "[concat(parameters('dnsLabelPrefix'),'pip')]",
+    "publicIPAddressType": "Dynamic",
+    "vmName": "[parameters('dnsLabelPrefix')]",
+    "vmSize": "Standard_DS1_v2",
+    "virtualNetworkName": "SapOpt2-vnet",
+    "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
+    "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables('subnetName'))]",
+    "nsgName": "lzuap00001-nsg"
+  },
+  "resources": [
+    {
+      "comments": "NSG",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[variables('nsgName')]",
+      "apiVersion": "2017-06-01",
+      "location": "[resourceGroup().location]",
+      "scale": null,
+      "properties": {
+          "securityRules": [
+              {
+                  "name": "default-allow-ssh",
+                  "properties": {
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "22",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 1000,
+                      "direction": "Inbound",
+                      "sourceAddressPrefixes": [],
+                      "destinationAddressPrefixes": []
+                  }
+              },
+              {
+                  "name": "HTTP",
+                  "properties": {
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "80",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 1010,
+                      "direction": "Inbound",
+                      "sourceAddressPrefixes": [],
+                      "destinationAddressPrefixes": []
+                  }
+              },
+              {
+                  "name": "HTTPS",
+                  "properties": {
+                      "protocol": "Tcp",
+                      "sourcePortRange": "*",
+                      "destinationPortRange": "443",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*",
+                      "access": "Allow",
+                      "priority": 1020,
+                      "direction": "Inbound",
+                      "sourceAddressPrefixes": [],
+                      "destinationAddressPrefixes": []
+                  }
+              }
+          ]
+      },
+      "dependsOn": []
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('publicIPAddressName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAllocationMethod": "[variables('publicIPAddressType')]",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('dnsLabelPrefix')]"
+        }
+      }
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('virtualNetworkName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('addressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('subnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2017-06-01",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('nicName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]"
+              },
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2017-03-30",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('vmName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[parameters('ubuntuOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('nicName'))]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "name": "TeamServicesAgentLinux",
+          "type": "extensions",
+          "location": "[resourceGroup().location]",
+          "apiVersion": "2015-06-15",
+          "dependsOn": [
+              "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+          ],
+          "tags": {
+              "displayName": "TeamServicesAgentLinux"
+          },
+          "properties": {
+              "publisher": "Microsoft.VisualStudio.Services",
+              "type": "TeamServicesAgentLinux",
+              "typeHandlerVersion": "1.0",
+              "autoUpgradeMinorVersion": true,
+              "settings": {
+                "VSTSAccountName": "[parameters('vstsAccountName')]",
+                "TeamProject": "[parameters('teamProject')]",
+                "DeploymentGroup": "[parameters('deploymentGroup')]",
+                "AgentName": "",
+                "Tags": ""
+              },
+              "protectedSettings": {
+                "PATToken" : "[parameters('patToken')]"
+              }
+          }
+        }
+      ]
+    }
+  ],
+  "outputs": {
+    "hostname": {
+      "type": "string",
+      "value": "[reference(variables('publicIPAddressName')).dnsSettings.fqdn]"
+    },
+    "sshCommand": {
+      "type": "string",
+      "value": "[concat('ssh ', parameters('adminUsername'), '@', reference(variables('publicIPAddressName')).dnsSettings.fqdn)]"
+    }
+  }
+}
